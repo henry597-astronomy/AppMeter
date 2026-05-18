@@ -19,30 +19,46 @@ class TrackingService : Service() {
 
     private val checkRunnable = object : Runnable {
         override fun run() {
-            checkForegroundApp()
+            try {
+                checkForegroundApp()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
             handler.postDelayed(this, 5000)
         }
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    override fun onCreate() {
+        super.onCreate()
         startForegroundNotification()
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         handler.post(checkRunnable)
         return START_STICKY
     }
 
     private fun checkForegroundApp() {
-        val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+        val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager ?: return
         val endTime = System.currentTimeMillis()
         val startTime = endTime - 10000
 
-        val stats = usageStatsManager.queryUsageStats(
-            UsageStatsManager.INTERVAL_DAILY, startTime, endTime
-        )
+        val stats = try {
+            usageStatsManager.queryUsageStats(
+                UsageStatsManager.INTERVAL_DAILY, startTime, endTime
+            )
+        } catch (e: Exception) {
+            return
+        }
+
+        if (stats.isNullOrEmpty()) return
 
         val currentApp = stats
-            ?.filter { it.lastTimeUsed > 0 }
-            ?.maxByOrNull { it.lastTimeUsed }
+            .filter { it.lastTimeUsed > 0 }
+            .maxByOrNull { it.lastTimeUsed }
             ?.packageName ?: return
+
+        if (currentApp == packageName) return
 
         if (currentApp != lastApp) {
             if (lastApp.isNotEmpty() && sessionStart > 0) {
@@ -60,6 +76,7 @@ class TrackingService : Service() {
         val prefs = getSharedPreferences("tracker_prefs", Context.MODE_PRIVATE)
         val studentId = prefs.getString("student_id", "") ?: return
         val token = prefs.getString("auth_token", "") ?: return
+        if (studentId.isEmpty() || token.isEmpty()) return
 
         scope.launch {
             try {
@@ -78,20 +95,24 @@ class TrackingService : Service() {
     }
 
     private fun startForegroundNotification() {
-        val channelId = "tracking_channel"
-        val channel = NotificationChannel(
-            channelId, "App Tracking", NotificationManager.IMPORTANCE_LOW
-        )
-        val manager = getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(channel)
+        try {
+            val channelId = "tracking_channel"
+            val channel = NotificationChannel(
+                channelId, "App Tracking", NotificationManager.IMPORTANCE_LOW
+            )
+            val manager = getSystemService(NotificationManager::class.java)
+            manager?.createNotificationChannel(channel)
 
-        val notification = Notification.Builder(this, channelId)
-            .setContentTitle("Tracking Active")
-            .setContentText("App usage is being recorded")
-            .setSmallIcon(android.R.drawable.ic_menu_info_details)
-            .build()
+            val notification = Notification.Builder(this, channelId)
+                .setContentTitle("Student Tracker Active")
+                .setContentText("Monitoring app usage")
+                .setSmallIcon(android.R.drawable.ic_menu_info_details)
+                .build()
 
-        startForeground(1, notification)
+            startForeground(1, notification)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
