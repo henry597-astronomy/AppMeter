@@ -21,6 +21,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
+        val fullNameInput = findViewById<EditText>(R.id.fullNameInput)
         val emailInput = findViewById<EditText>(R.id.emailInput)
         val passwordInput = findViewById<EditText>(R.id.passwordInput)
         val loginButton = findViewById<Button>(R.id.loginButton)
@@ -59,17 +60,18 @@ class MainActivity : AppCompatActivity() {
         }
 
         signupButton.setOnClickListener {
+            val fullName = fullNameInput.text.toString().trim()
             val email = emailInput.text.toString().trim()
             val password = passwordInput.text.toString().trim()
 
-            if (email.isEmpty() || password.isEmpty()) {
-                Toast.makeText(this, "Fill all fields", Toast.LENGTH_SHORT).show()
+            if (fullName.isEmpty() || email.isEmpty() || password.isEmpty()) {
+                Toast.makeText(this, "Fill all fields including your name", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
             CoroutineScope(Dispatchers.IO).launch {
                 try {
-                    val result = SupabaseClient.signUp(email, password, "Student", "student")
+                    val result = SupabaseClient.signUp(email, password, fullName, "student")
                     val token = result.getString("access_token")
                     val userId = result.getJSONObject("user").getString("id")
 
