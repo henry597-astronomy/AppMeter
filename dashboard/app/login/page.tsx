@@ -17,15 +17,24 @@ export default function LoginPage() {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) { setError(error.message); setLoading(false); return }
 
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('role')
       .eq('id', data.user.id)
       .single()
 
-    if (profile?.role === 'teacher') router.push('/teacher')
-    else if (profile?.role === 'admin') router.push('/admin')
-    else { setError('Access denied. Only teachers and admins can log in here.'); setLoading(false) }
+    if (profileError || !profile) {
+      setError('Profile not found. Contact admin.')
+      setLoading(false)
+      return
+    }
+
+    if (profile.role === 'admin') router.push('/admin')
+    else if (profile.role === 'teacher') router.push('/teacher')
+    else {
+      setError('Access denied. Only teachers and admins can log in here.')
+      setLoading(false)
+    }
   }
 
   return (
@@ -87,10 +96,6 @@ export default function LoginPage() {
             </button>
           </div>
         </div>
-
-        <p className="text-center text-gray-600 text-xs mt-6">
-          Student App Usage Tracker • Secure & Consent-based
-        </p>
       </div>
     </div>
   )
