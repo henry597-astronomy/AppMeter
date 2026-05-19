@@ -1,5 +1,7 @@
 package com.studenttracker
 
+import android.app.AppOpsManager
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
@@ -19,11 +21,39 @@ class ConsentActivity : AppCompatActivity() {
         val revokeButton = findViewById<Button>(R.id.revokeButton)
 
         agreeButton.setOnClickListener {
-            giveConsent()
+            if (!hasUsagePermission()) {
+                Toast.makeText(this,
+                    "Please find Student Tracker in the list and turn it ON, then come back",
+                    Toast.LENGTH_LONG).show()
+                startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+            } else {
+                giveConsent()
+            }
         }
 
         revokeButton.setOnClickListener {
             revokeConsent()
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (hasUsagePermission()) {
+            giveConsent()
+        }
+    }
+
+    private fun hasUsagePermission(): Boolean {
+        return try {
+            val appOps = getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
+            val mode = appOps.checkOpNoThrow(
+                AppOpsManager.OPSTR_GET_USAGE_STATS,
+                android.os.Process.myUid(),
+                packageName
+            )
+            mode == AppOpsManager.MODE_ALLOWED
+        } catch (e: Exception) {
+            false
         }
     }
 
@@ -39,10 +69,13 @@ class ConsentActivity : AppCompatActivity() {
                 e.printStackTrace()
             }
             withContext(Dispatchers.Main) {
-                startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
                 val serviceIntent = Intent(this@ConsentActivity, TrackingService::class.java)
                 startForegroundService(serviceIntent)
+                Toast.makeText(this@ConsentActivity,
+                    "Tracking started successfully!",
+                    Toast.LENGTH_SHORT).show()
                 startActivity(Intent(this@ConsentActivity, DashboardActivity::class.java))
+                finish()
             }
         }
     }
@@ -61,7 +94,9 @@ class ConsentActivity : AppCompatActivity() {
             withContext(Dispatchers.Main) {
                 stopService(Intent(this@ConsentActivity, TrackingService::class.java))
                 prefs.edit().clear().apply()
-                Toast.makeText(this@ConsentActivity, "Tracking stopped and data deleted", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@ConsentActivity,
+                    "Tracking stopped and data deleted",
+                    Toast.LENGTH_SHORT).show()
                 startActivity(Intent(this@ConsentActivity, MainActivity::class.java))
                 finish()
             }
