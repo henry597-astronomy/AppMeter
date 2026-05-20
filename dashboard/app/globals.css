@@ -2,6 +2,30 @@
 @tailwind components;
 @tailwind utilities;
 
+@theme {
+  --animate-in: in 0.5s ease-out;
+  --animate-out: out 0.5s ease-in;
+  --animate-fade-in: fade-in 0.5s ease-out;
+  --animate-slide-in-from-bottom: slide-in-from-bottom 0.5s ease-out;
+
+  @keyframes in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes out {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes slide-in-from-bottom {
+    from { transform: translateY(1rem); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+}
+
 @keyframes float {
   0%, 100% { transform: translateY(0px); }
   50% { transform: translateY(-10px); }
