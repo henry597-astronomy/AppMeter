@@ -143,6 +143,13 @@ export default function AdminDashboard() {
     return h > 0 ? `${h}h ${m}m` : `${m}m`
   }
 
+  const linkTeacherStudent = async () => {
+    if (!selectedTeacher || !selectedStudentLink) { setMessage('Select both'); return }
+    const { error } = await supabase.from('teacher_student_links').insert({ teacher_id: selectedTeacher, student_id: selectedStudentLink })
+    setMessage(error ? 'Error: ' + error.message : 'Linked successfully!')
+    setTimeout(() => setMessage(''), 3000)
+  }
+
   const logout = async () => { await supabase.auth.signOut(); router.push('/login') }
 
   const filteredStudents = useMemo(() => {
@@ -162,6 +169,18 @@ export default function AdminDashboard() {
     { id: 'links', icon: LinkIcon, label: 'Connections' },
   ]
 
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (!active || !payload?.length) return null
+    return (
+      <div className="bg-slate-900/95 backdrop-blur-md border border-white/10 rounded-lg p-2 shadow-2xl">
+        <p className="text-white font-bold text-[10px] mb-0.5 uppercase tracking-wider">{label}</p>
+        <p className="text-indigo-400 text-sm font-black">
+          {payload[0].value} {payload[0].name === 'hours' ? 'hrs' : 'min'}
+        </p>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-[#020617] text-slate-200 font-sans selection:bg-indigo-500/30 flex flex-col">
       {/* Background Effects */}
@@ -170,8 +189,8 @@ export default function AdminDashboard() {
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-fuchsia-600/10 blur-[120px]" />
       </div>
 
-      {/* Desktop Sidebar (hidden on mobile) */}
       <div className="flex flex-1">
+        {/* Desktop Sidebar */}
         <aside className="hidden lg:flex w-56 h-screen sticky top-0 border-r border-white/5 bg-slate-950/50 backdrop-blur-xl flex-col shrink-0">
           <div className="p-5">
             <div className="flex items-center gap-2.5 mb-8">
@@ -202,7 +221,6 @@ export default function AdminDashboard() {
 
         {/* Main Content Area */}
         <main className="flex-1 min-w-0 flex flex-col">
-          {/* Header & Horizontal Nav on Mobile */}
           <header className="border-b border-white/5 bg-slate-950/20 backdrop-blur-md sticky top-0 z-20">
             <div className="h-14 flex items-center justify-between px-4 lg:px-8">
               <div className="flex items-center gap-3">
@@ -210,19 +228,17 @@ export default function AdminDashboard() {
                   <Smartphone className="w-4 h-4 text-white" />
                 </div>
                 <h2 className="text-sm font-bold text-white capitalize">
-                  {activeTab === 'grades' ? (view === 'grades' ? 'Dashboard Overview' : (view === 'students' ? `${selectedGrade}` : 'Student Analysis')) : activeTab}
+                  {activeTab === 'grades' ? (view === 'grades' ? 'Overview' : (view === 'students' ? `${selectedGrade}` : 'Analysis')) : activeTab}
                 </h2>
               </div>
               <div className="flex items-center gap-4">
                 <div className="hidden sm:block relative group">
                   <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors" />
                   <input type="text" placeholder="Search..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                    className="bg-slate-900/50 border border-white/5 rounded-full py-1.5 pl-9 pr-4 text-xs w-32 md:w-48 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/30 transition-all" />
+                    className="bg-slate-900/50 border border-white/5 rounded-full py-1.5 pl-9 pr-4 text-xs w-32 md:w-48 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all" />
                 </div>
                 <div className="flex items-center gap-2 lg:pl-4 lg:border-l lg:border-white/5">
-                  <div className="w-7 h-7 rounded-full bg-slate-800 border border-white/10 flex items-center justify-center">
-                    <UserRound className="w-3.5 h-3.5 text-slate-400" />
-                  </div>
+                  <div className="w-7 h-7 rounded-full bg-slate-800 border border-white/10 flex items-center justify-center"><UserRound className="w-3.5 h-3.5 text-slate-400" /></div>
                   <span className="hidden sm:inline text-xs font-medium text-slate-300">Admin</span>
                   <button onClick={logout} className="lg:hidden p-1.5 rounded-lg bg-white/5 text-slate-400 hover:text-rose-400"><LogOut className="w-4 h-4" /></button>
                 </div>
@@ -230,11 +246,11 @@ export default function AdminDashboard() {
             </div>
 
             {/* Mobile Horizontal Nav */}
-            <div className="lg:hidden px-4 pb-3 overflow-x-auto no-scrollbar">
+            <div className="lg:hidden px-4 pb-3 overflow-x-auto no-scrollbar border-t border-white/5 pt-3">
               <div className="flex items-center gap-2 min-w-max">
                 {navItems.map((item) => (
                   <button key={item.id} onClick={() => { setActiveTab(item.id as any); setView('grades'); setSelectedStudent(null); setSelectedGrade(null) }}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${activeTab === item.id ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'bg-white/5 text-slate-400 border border-white/5'}`}>
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${activeTab === item.id ? 'bg-indigo-500 text-white shadow-lg' : 'bg-white/5 text-slate-400 border border-white/5'}`}>
                     <item.icon className="w-3.5 h-3.5" />
                     {item.label}
                   </button>
@@ -263,7 +279,6 @@ export default function AdminDashboard() {
                         </div>
                       ))}
                     </div>
-
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {GRADES.map(grade => {
                         const theme = GRADE_THEMES[grade], stats = gradeStats[grade] || { count: 0, totalSeconds: 0, avgSeconds: 0 }, gradeWarnings = students.filter(s => s.grade === grade && studentWarnings[s.id]).length, pct = Math.min(Math.round((stats.avgSeconds / (5 * 3600)) * 100), 100)
@@ -290,22 +305,15 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                 )}
-
                 {view === 'students' && selectedGrade && (
                   <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <div className="flex items-center gap-3 mb-2">
-                      <button onClick={() => setView('grades')} className="p-1.5 rounded-lg bg-white/5 text-slate-400 hover:text-white"><ChevronLeft className="w-4 h-4" /></button>
-                      <h3 className="text-sm font-bold text-white">Back to Grades</h3>
-                    </div>
+                    <div className="flex items-center gap-3 mb-2"><button onClick={() => setView('grades')} className="p-1.5 rounded-lg bg-white/5 text-slate-400 hover:text-white"><ChevronLeft className="w-4 h-4" /></button><h3 className="text-sm font-bold text-white">Back to Grades</h3></div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                       {filteredStudents.map(s => {
                         const hasWarning = studentWarnings[s.id], theme = GRADE_THEMES[selectedGrade]
                         return (
                           <button key={s.id} onClick={() => { setSelectedStudent(s); setView('detail'); fetchUsage(s.id) }} className="text-left bg-slate-900/40 border border-white/5 rounded-2xl p-5 group hover:bg-slate-900/60 hover:border-indigo-500/20 transition-all duration-300">
-                            <div className="flex items-center gap-3 mb-4">
-                              <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${theme.gradient} flex items-center justify-center text-sm font-black text-white shadow-lg`}>{s.full_name?.[0]?.toUpperCase()}</div>
-                              <div className="min-w-0"><h4 className="text-[14px] font-black text-white truncate group-hover:text-indigo-400 transition-colors">{s.full_name}</h4><p className="text-[10px] text-slate-500 truncate">{s.email}</p></div>
-                            </div>
+                            <div className="flex items-center gap-3 mb-4"><div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${theme.gradient} flex items-center justify-center text-sm font-black text-white shadow-lg`}>{s.full_name?.[0]?.toUpperCase()}</div><div className="min-w-0"><h4 className="text-[14px] font-black text-white truncate group-hover:text-indigo-400 transition-colors">{s.full_name}</h4><p className="text-[10px] text-slate-500 truncate">{s.email}</p></div></div>
                             <div className={`rounded-xl p-2.5 mb-4 text-[10px] font-bold flex items-center gap-1.5 ${hasWarning ? 'bg-rose-500/10 text-rose-400 border border-rose-500/10' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/10'}`}>{hasWarning ? <><AlertTriangle className="w-3.5 h-3.5" /> Warning</> : <><ShieldCheck className="w-3.5 h-3.5" /> Normal</>}</div>
                             <div className="flex items-center justify-between text-[9px] font-bold uppercase tracking-widest text-slate-500 group-hover:text-indigo-400 transition-colors"><span>Analysis</span> <ArrowRight className="w-3 h-3" /></div>
                           </button>
@@ -314,23 +322,13 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                 )}
-
                 {view === 'detail' && selectedStudent && (
                   <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <div className="flex items-center gap-3 mb-2">
-                      <button onClick={() => setView('students')} className="p-1.5 rounded-lg bg-white/5 text-slate-400 hover:text-white"><ChevronLeft className="w-4 h-4" /></button>
-                      <h3 className="text-sm font-bold text-white">Back to {selectedGrade}</h3>
-                    </div>
-                    <div className="bg-slate-900/40 border border-white/5 rounded-3xl p-6">
-                      <div className="flex flex-col sm:flex-row items-center gap-6">
-                        <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${GRADE_THEMES[selectedStudent.grade]?.gradient || 'from-indigo-500 to-blue-600'} flex items-center justify-center text-3xl font-black text-white shadow-xl`}>{selectedStudent.full_name?.[0]?.toUpperCase()}</div>
-                        <div className="text-center sm:text-left flex-1"><h2 className="text-2xl font-black text-white mb-1">{selectedStudent.full_name}</h2><p className="text-xs text-slate-400 mb-3">{selectedStudent.email}</p><span className={`px-3 py-1 rounded-full text-[10px] font-black text-white bg-gradient-to-r ${GRADE_THEMES[selectedStudent.grade]?.gradient}`}>{selectedStudent.grade}</span></div>
-                        <div className="flex bg-slate-950/50 p-1 rounded-xl border border-white/5">{(['today', 'week', 'month'] as const).map(f => (<button key={f} onClick={() => setFilter(f)} className={`px-3 sm:px-4 py-1.5 rounded-lg text-[10px] font-bold capitalize transition-all duration-200 ${filter === f ? 'bg-indigo-500 text-white' : 'text-slate-500 hover:text-slate-300'}`}>{f}</button>))}</div>
-                      </div>
-                    </div>
+                    <div className="flex items-center gap-3 mb-2"><button onClick={() => setView('students')} className="p-1.5 rounded-lg bg-white/5 text-slate-400 hover:text-white"><ChevronLeft className="w-4 h-4" /></button><h3 className="text-sm font-bold text-white">Back to {selectedGrade}</h3></div>
+                    <div className="bg-slate-900/40 border border-white/5 rounded-3xl p-6"><div className="flex flex-col sm:flex-row items-center gap-6"><div className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${GRADE_THEMES[selectedStudent.grade]?.gradient || 'from-indigo-500 to-blue-600'} flex items-center justify-center text-3xl font-black text-white shadow-xl`}>{selectedStudent.full_name?.[0]?.toUpperCase()}</div><div className="text-center sm:text-left flex-1"><h2 className="text-2xl font-black text-white mb-1">{selectedStudent.full_name}</h2><p className="text-xs text-slate-400 mb-3">{selectedStudent.email}</p><span className={`px-3 py-1 rounded-full text-[10px] font-black text-white bg-gradient-to-r ${GRADE_THEMES[selectedStudent.grade]?.gradient}`}>{selectedStudent.grade}</span></div><div className="flex bg-slate-950/50 p-1 rounded-xl border border-white/5">{(['today', 'week', 'month'] as const).map(f => (<button key={f} onClick={() => setFilter(f)} className={`px-3 sm:px-4 py-1.5 rounded-lg text-[10px] font-bold capitalize transition-all duration-200 ${filter === f ? 'bg-indigo-500 text-white' : 'text-slate-500 hover:text-slate-300'}`}>{f}</button>))}</div></div></div>
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                       <div className="lg:col-span-2 space-y-6">
-                        <div className="bg-slate-900/40 border border-white/5 rounded-2xl p-6 overflow-hidden"><h3 className="text-sm font-bold text-white mb-6">Activity Timeline</h3><div className="h-[200px] w-full"><ResponsiveContainer width="100%" height="100%"><BarChart data={dailyData}><XAxis dataKey="name" tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} /><YAxis tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} /><Bar dataKey="hours" radius={[4, 4, 0, 0]} barSize={30}>{dailyData.map((d, i) => <Cell key={i} fill={d.warning ? '#f43f5e' : '#6366f1'} />)}</Bar></BarChart></ResponsiveContainer></div></div>
+                        <div className="bg-slate-900/40 border border-white/5 rounded-2xl p-6 overflow-hidden"><h3 className="text-sm font-bold text-white mb-6">Activity Timeline</h3><div className="h-[200px] w-full"><ResponsiveContainer width="100%" height="100%"><BarChart data={dailyData}><XAxis dataKey="name" tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} /><YAxis tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} /><Tooltip cursor={{ fill: 'rgba(255,255,255,0.03)' }} content={<CustomTooltip />} /><Bar dataKey="hours" radius={[4, 4, 0, 0]} barSize={30}>{dailyData.map((d, i) => <Cell key={i} fill={d.warning ? '#f43f5e' : '#6366f1'} />)}</Bar></BarChart></ResponsiveContainer></div></div>
                         <div className="bg-slate-900/40 border border-white/5 rounded-2xl overflow-hidden"><div className="p-5 border-b border-white/5"><h3 className="text-sm font-bold text-white">App Breakdown</h3></div><div className="divide-y divide-white/5">{usage.map((app, i) => { const pct = Math.round((app.seconds / totalTime) * 100); return (<div key={app.name} className="p-4 hover:bg-white/[0.02] transition-colors"><div className="flex items-center justify-between mb-3"><div className="flex items-center gap-3"><div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-sm shadow-inner">{app.name[0].toUpperCase()}</div><div><p className="text-[13px] font-bold text-white">{app.name}</p><p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">{pct}% of total</p></div></div><p className="text-sm font-black text-white">{formatTime(app.seconds)}</p></div><div className="h-1 bg-slate-800 rounded-full overflow-hidden"><div className="h-full rounded-full transition-all duration-1000" style={{ width: `${pct}%`, backgroundColor: COLORS[i % COLORS.length] }} /></div></div>)})}</div></div>
                       </div>
                       <div className="space-y-6">
