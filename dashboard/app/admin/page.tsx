@@ -229,10 +229,6 @@ export default function AdminDashboard() {
                     <p className="text-yellow-400 text-xs uppercase tracking-widest mb-2">Warnings</p>
                     <p className="text-5xl font-black text-white">{Object.values(studentWarnings).filter(Boolean).length}</p>
                   </div>
-                  <div className="bg-gradient-to-br from-green-600/20 to-transparent rounded-2xl p-5 border border-green-500/20">
-                    <p className="text-green-400 text-xs uppercase tracking-widest mb-2">Grades</p>
-                    <p className="text-5xl font-black text-white">4</p>
-                  </div>
                 </div>
 
                 {/* Grade Cards */}
