@@ -22,6 +22,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         val fullNameInput = findViewById<EditText>(R.id.fullNameInput)
+        val gradeInput = findViewById<EditText>(R.id.gradeInput)
         val emailInput = findViewById<EditText>(R.id.emailInput)
         val passwordInput = findViewById<EditText>(R.id.passwordInput)
         val loginButton = findViewById<Button>(R.id.loginButton)
@@ -61,17 +62,23 @@ class MainActivity : AppCompatActivity() {
 
         signupButton.setOnClickListener {
             val fullName = fullNameInput.text.toString().trim()
+            var grade = gradeInput.text.toString().trim()
             val email = emailInput.text.toString().trim()
             val password = passwordInput.text.toString().trim()
 
-            if (fullName.isEmpty() || email.isEmpty() || password.isEmpty()) {
-                Toast.makeText(this, "Fill all fields including your name", Toast.LENGTH_SHORT).show()
+            if (fullName.isEmpty() || grade.isEmpty() || email.isEmpty() || password.isEmpty()) {
+                Toast.makeText(this, "Fill all fields including your name and grade", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
+            }
+
+            // Ensure grade matches the format expected by the dashboard (e.g., "Grade 10")
+            if (!grade.startsWith("Grade", ignoreCase = true)) {
+                grade = "Grade $grade"
             }
 
             CoroutineScope(Dispatchers.IO).launch {
                 try {
-                    val result = SupabaseClient.signUp(email, password, fullName, "student")
+                    val result = SupabaseClient.signUp(email, password, fullName, "student", grade)
                     val token = result.getString("access_token")
                     val userId = result.getJSONObject("user").getString("id")
 
