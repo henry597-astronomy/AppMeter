@@ -1,5 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
+
+export const dynamic = 'force-dynamic'
 import { supabase } from '@/lib/supabase'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { useRouter } from 'next/navigation'

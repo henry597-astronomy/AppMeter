@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
+
+export const dynamic = 'force-dynamic'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import {
