@@ -43,7 +43,37 @@ object SupabaseClient {
         body.put("data", metadata)
         conn.outputStream.write(body.toString().toByteArray())
         val response = conn.inputStream.bufferedReader().readText()
-        return JSONObject(response)
+        val result = JSONObject(response)
+
+        // After successful signup, manually insert into profiles table
+        // This ensures the data is available even if the Supabase trigger is missing
+        try {
+            val userId = result.getJSONObject("user").getString("id")
+            val token = result.getString("access_token")
+            createProfile(userId, token, email, fullName, role, grade)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        return result
+    }
+
+    private fun createProfile(id: String, token: String, email: String, fullName: String, role: String, grade: String) {
+        val url = URL("$SUPABASE_URL/rest/v1/profiles")
+        val conn = url.openConnection() as HttpURLConnection
+        conn.requestMethod = "POST"
+        conn.setRequestProperty("Content-Type", "application/json")
+        conn.setRequestProperty("apikey", ANON_KEY)
+        conn.setRequestProperty("Authorization", "Bearer $token")
+        conn.doOutput = true
+        val body = JSONObject()
+        body.put("id", id)
+        body.put("email", email)
+        body.put("full_name", fullName)
+        body.put("role", role)
+        body.put("grade", grade)
+        conn.outputStream.write(body.toString().toByteArray())
+        conn.inputStream.bufferedReader().readText()
     }
 
     fun insertUsageRecord(

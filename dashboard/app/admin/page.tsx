@@ -80,7 +80,12 @@ export default function AdminDashboard() {
     const today = new Date(); today.setHours(0, 0, 0, 0)
 
     for (const grade of GRADES) {
-      const gradeStudents = (s || []).filter((st: any) => st.grade === grade)
+      const gradeStudents = (s || []).filter((st: any) => {
+        if (!st.grade) return false;
+        const studentGrade = st.grade.toString().toLowerCase().trim();
+        const targetGrade = grade.toLowerCase().trim();
+        return studentGrade === targetGrade || studentGrade === targetGrade.replace('grade ', '');
+      })
       let totalSeconds = 0
       for (const student of gradeStudents) {
         const { data: rec } = await supabase
@@ -153,7 +158,12 @@ export default function AdminDashboard() {
   const logout = async () => { await supabase.auth.signOut(); router.push('/login') }
 
   const filteredStudents = useMemo(() => {
-    let base = selectedGrade ? students.filter(s => s.grade === selectedGrade) : students
+    let base = selectedGrade ? students.filter(s => {
+      if (!s.grade) return false;
+      const studentGrade = s.grade.toString().toLowerCase().trim();
+      const targetGrade = selectedGrade.toLowerCase().trim();
+      return studentGrade === targetGrade || studentGrade === targetGrade.replace('grade ', '');
+    }) : students
     if (searchQuery) {
       base = base.filter(s => 
         s.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
