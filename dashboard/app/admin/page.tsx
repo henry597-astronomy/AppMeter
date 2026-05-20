@@ -4,19 +4,39 @@ import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip,
-  ResponsiveContainer, Cell, PieChart, Pie
+  ResponsiveContainer, Cell
 } from 'recharts'
 
 const COLORS = ['#3b82f6','#6366f1','#8b5cf6','#a78bfa','#60a5fa','#34d399','#fbbf24','#f87171','#fb923c','#e879f9']
 const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-
 const GRADES = ['Grade 9','Grade 10','Grade 11','Grade 12']
-const GRADE_COLORS: Record<string, {from: string, to: string, border: string, text: string, bg: string}> = {
-  'Grade 9':  { from: 'from-blue-600',   to: 'to-cyan-600',    border: 'border-blue-500/30',   text: 'text-blue-400',   bg: 'bg-blue-600' },
-  'Grade 10': { from: 'from-purple-600', to: 'to-pink-600',    border: 'border-purple-500/30', text: 'text-purple-400', bg: 'bg-purple-600' },
-  'Grade 11': { from: 'from-green-600',  to: 'to-emerald-600', border: 'border-green-500/30',  text: 'text-green-400',  bg: 'bg-green-600' },
-  'Grade 12': { from: 'from-orange-600', to: 'to-red-600',     border: 'border-orange-500/30', text: 'text-orange-400', bg: 'bg-orange-600' },
+
+const GRADE_THEMES: Record<string, any> = {
+  'Grade 9':  {
+    gradient: 'linear-gradient(135deg, #1D4ED8 0%, #06B6D4 100%)',
+    shadow: '0 20px 60px rgba(29,78,216,0.4)',
+    badge: 'bg-blue-500/20 text-blue-300 border-blue-400/30',
+    bar: '#3b82f6', text: 'text-blue-300', icon: '🔵'
+  },
+  'Grade 10': {
+    gradient: 'linear-gradient(135deg, #7C3AED 0%, #EC4899 100%)',
+    shadow: '0 20px 60px rgba(124,58,237,0.4)',
+    badge: 'bg-purple-500/20 text-purple-300 border-purple-400/30',
+    bar: '#8b5cf6', text: 'text-purple-300', icon: '🟣'
+  },
+  'Grade 11': {
+    gradient: 'linear-gradient(135deg, #059669 0%, #10B981 100%)',
+    shadow: '0 20px 60px rgba(5,150,105,0.4)',
+    badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-400/30',
+    bar: '#10b981', text: 'text-emerald-300', icon: '🟢'
+  },
+  'Grade 12': {
+    gradient: 'linear-gradient(135deg, #D97706 0%, #EF4444 100%)',
+    shadow: '0 20px 60px rgba(217,119,6,0.4)',
+    badge: 'bg-orange-500/20 text-orange-300 border-orange-400/30',
+    bar: '#f59e0b', text: 'text-orange-300', icon: '🟠'
+  },
 }
 
 export default function AdminDashboard() {
@@ -45,8 +65,7 @@ export default function AdminDashboard() {
   const checkAdmin = async () => {
     const { data: user } = await supabase.auth.getUser()
     if (!user.user) { router.push('/login'); return }
-    const { data: profile } = await supabase
-      .from('profiles').select('role').eq('id', user.user.id).single()
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.user.id).single()
     if (profile?.role !== 'admin') router.push('/login')
   }
 
@@ -56,20 +75,17 @@ export default function AdminDashboard() {
     setStudents(s || [])
     setTeachers(t || [])
 
-    // Calculate grade stats and warnings
     const warnings: Record<string, boolean> = {}
     const stats: Record<string, any> = {}
     const today = new Date(); today.setHours(0,0,0,0)
 
     for (const grade of GRADES) {
-      const gradeStudents = (s || []).filter(st => st.grade === grade)
+      const gradeStudents = (s || []).filter((st: any) => st.grade === grade)
       let totalSeconds = 0
       for (const student of gradeStudents) {
         const { data: rec } = await supabase
-          .from('usage_records')
-          .select('duration_seconds')
-          .eq('student_id', student.id)
-          .gte('start_time', today.toISOString())
+          .from('usage_records').select('duration_seconds')
+          .eq('student_id', student.id).gte('start_time', today.toISOString())
         const t = (rec || []).reduce((a: number, b: any) => a + (b.duration_seconds || 0), 0)
         totalSeconds += t
         warnings[student.id] = t > 5 * 3600
@@ -93,10 +109,8 @@ export default function AdminDashboard() {
     else fromDate.setMonth(now.getMonth() - 1)
 
     const { data } = await supabase
-      .from('usage_records')
-      .select('app_name, duration_seconds, start_time')
-      .eq('student_id', studentId)
-      .gte('start_time', fromDate.toISOString())
+      .from('usage_records').select('app_name, duration_seconds, start_time')
+      .eq('student_id', studentId).gte('start_time', fromDate.toISOString())
       .order('start_time', { ascending: false })
 
     const map: Record<string, number> = {}
@@ -104,26 +118,17 @@ export default function AdminDashboard() {
       const name = r.app_name.split('.').pop() || r.app_name
       map[name] = (map[name] || 0) + (r.duration_seconds || 0)
     })
-    const sorted = Object.entries(map)
-      .sort((a,b) => b[1]-a[1]).slice(0,10)
+    const sorted = Object.entries(map).sort((a,b) => b[1]-a[1]).slice(0,10)
       .map(([name, seconds]) => ({ name, minutes: Math.round(seconds/60), seconds }))
     setUsage(sorted)
     setTotalTime(sorted.reduce((a,b) => a + b.seconds, 0))
 
     const dayMap: Record<number, number> = {0:0,1:0,2:0,3:0,4:0,5:0,6:0}
-    data?.forEach(r => {
-      const day = new Date(r.start_time).getDay()
-      dayMap[day] = (dayMap[day] || 0) + (r.duration_seconds || 0)
-    })
-    setDailyData(DAYS.map((name, i) => ({
-      name, hours: parseFloat((dayMap[i]/3600).toFixed(1)), warning: dayMap[i] > 5*3600
-    })))
+    data?.forEach(r => { const d = new Date(r.start_time).getDay(); dayMap[d] = (dayMap[d]||0) + (r.duration_seconds||0) })
+    setDailyData(DAYS.map((name, i) => ({ name, hours: parseFloat((dayMap[i]/3600).toFixed(1)), warning: dayMap[i] > 5*3600 })))
 
     const monthMap: Record<number, number> = {}
-    data?.forEach(r => {
-      const month = new Date(r.start_time).getMonth()
-      monthMap[month] = (monthMap[month] || 0) + (r.duration_seconds || 0)
-    })
+    data?.forEach(r => { const m = new Date(r.start_time).getMonth(); monthMap[m] = (monthMap[m]||0) + (r.duration_seconds||0) })
     const last6 = []
     for (let i = 5; i >= 0; i--) {
       const m = (now.getMonth() - i + 12) % 12
@@ -142,9 +147,7 @@ export default function AdminDashboard() {
 
   const linkTeacherStudent = async () => {
     if (!selectedTeacher || !selectedStudentLink) { setMessage('Select both'); return }
-    const { error } = await supabase.from('teacher_student_links').insert({
-      teacher_id: selectedTeacher, student_id: selectedStudentLink
-    })
+    const { error } = await supabase.from('teacher_student_links').insert({ teacher_id: selectedTeacher, student_id: selectedStudentLink })
     setMessage(error ? 'Error: ' + error.message : 'Linked successfully!')
     setTimeout(() => setMessage(''), 3000)
   }
@@ -154,55 +157,58 @@ export default function AdminDashboard() {
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null
     return (
-      <div className="bg-gray-800 border border-gray-700 rounded-xl p-3 shadow-xl">
-        <p className="text-white font-medium text-sm">{label}</p>
+      <div className="bg-gray-900 border border-white/10 rounded-2xl p-3 shadow-2xl">
+        <p className="text-white font-bold text-sm">{label}</p>
         <p className="text-blue-400 text-sm">{payload[0].value} {payload[0].name === 'hours' ? 'hrs' : 'min'}</p>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[#060A12] text-white">
+    <div className="min-h-screen text-white" style={{ background: 'linear-gradient(135deg, #060A12 0%, #0D0F1E 50%, #060A12 100%)' }}>
+
+      {/* Ambient Background */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 left-1/4 w-96 h-96 rounded-full opacity-5 blur-3xl" style={{ background: 'radial-gradient(circle, #6366f1, transparent)' }}/>
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full opacity-5 blur-3xl" style={{ background: 'radial-gradient(circle, #ec4899, transparent)' }}/>
+      </div>
+
       {/* Header */}
-      <div className="border-b border-white/5 bg-white/3 backdrop-blur-xl px-6 py-4 flex items-center justify-between sticky top-0 z-50">
+      <div className="relative z-10 border-b border-white/5 backdrop-blur-2xl px-6 py-4 flex items-center justify-between sticky top-0">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-gradient-to-br from-violet-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-violet-500/30">
+          <div className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-2xl" style={{ background: 'linear-gradient(135deg, #6366f1, #3b82f6)' }}>
             <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
           </div>
           <div>
-            <h1 className="font-black text-white tracking-tight">AppMeter</h1>
+            <h1 className="font-black text-white tracking-tight text-lg">AppMeter</h1>
             <p className="text-xs text-white/30">Admin Control Panel</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
           {view !== 'grades' && (
-            <button
-              onClick={() => { setView(view === 'detail' ? 'students' : 'grades'); setSelectedStudent(null) }}
-              className="text-white/50 hover:text-white text-sm flex items-center gap-1 transition"
-            >
+            <button onClick={() => { setView(view === 'detail' ? 'students' : 'grades'); setSelectedStudent(null) }}
+              className="text-white/50 hover:text-white text-sm flex items-center gap-1 transition px-3 py-1.5 rounded-xl hover:bg-white/5">
               ← Back
             </button>
           )}
-          <button onClick={logout} className="text-white/40 hover:text-white text-sm bg-white/5 hover:bg-white/10 px-4 py-2 rounded-xl transition">
+          <button onClick={logout} className="text-white/40 hover:text-white text-sm px-4 py-2 rounded-xl border border-white/10 hover:border-white/20 transition backdrop-blur">
             Sign out
           </button>
         </div>
       </div>
 
-      <div className="p-6">
+      <div className="relative z-10 p-6">
         {/* Tabs */}
-        <div className="flex gap-2 mb-6 bg-white/3 p-1 rounded-2xl w-fit">
+        <div className="flex gap-1 mb-8 p-1 rounded-2xl w-fit" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
           {(['grades','teachers','links'] as const).map(tab => (
-            <button
-              key={tab}
+            <button key={tab}
               onClick={() => { setActiveTab(tab); setView('grades'); setSelectedStudent(null); setSelectedGrade(null) }}
-              className={`px-5 py-2 rounded-xl text-sm font-semibold capitalize transition ${
-                activeTab === tab
-                  ? 'bg-gradient-to-r from-violet-600 to-blue-600 text-white shadow-lg shadow-violet-500/20'
-                  : 'text-white/40 hover:text-white'
+              className={`px-5 py-2.5 rounded-xl text-sm font-bold capitalize transition-all ${
+                activeTab === tab ? 'text-white shadow-lg' : 'text-white/30 hover:text-white/60'
               }`}
+              style={activeTab === tab ? { background: 'linear-gradient(135deg, #6366f1, #3b82f6)' } : {}}
             >
               {tab === 'grades' ? '🎓 Grades' : tab === 'teachers' ? '👨‍🏫 Teachers' : '🔗 Links'}
             </button>
@@ -216,99 +222,97 @@ export default function AdminDashboard() {
             {view === 'grades' && (
               <>
                 {/* Top Stats */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                  <div className="bg-gradient-to-br from-violet-600/20 to-transparent rounded-2xl p-5 border border-violet-500/20 col-span-2 lg:col-span-1">
-                    <p className="text-violet-400 text-xs uppercase tracking-widest mb-2">Total Students</p>
-                    <p className="text-5xl font-black text-white">{students.length}</p>
-                  </div>
-                  <div className="bg-gradient-to-br from-blue-600/20 to-transparent rounded-2xl p-5 border border-blue-500/20">
-                    <p className="text-blue-400 text-xs uppercase tracking-widest mb-2">Teachers</p>
-                    <p className="text-5xl font-black text-white">{teachers.length}</p>
-                  </div>
-                  <div className="bg-gradient-to-br from-yellow-600/20 to-transparent rounded-2xl p-5 border border-yellow-500/20">
-                    <p className="text-yellow-400 text-xs uppercase tracking-widest mb-2">Warnings</p>
-                    <p className="text-5xl font-black text-white">{Object.values(studentWarnings).filter(Boolean).length}</p>
-                  </div>
+                <div className="grid grid-cols-3 gap-4 mb-8">
+                  {[
+                    { label: 'Total Students', value: students.length, gradient: 'linear-gradient(135deg, #1D4ED8, #06B6D4)', shadow: 'rgba(29,78,216,0.3)' },
+                    { label: 'Total Teachers', value: teachers.length, gradient: 'linear-gradient(135deg, #7C3AED, #EC4899)', shadow: 'rgba(124,58,237,0.3)' },
+                    { label: '⚠️ Warnings', value: Object.values(studentWarnings).filter(Boolean).length, gradient: 'linear-gradient(135deg, #D97706, #EF4444)', shadow: 'rgba(217,119,6,0.3)' },
+                  ].map((stat, i) => (
+                    <div key={i} className="rounded-3xl p-6 relative overflow-hidden" style={{ background: stat.gradient, boxShadow: `0 20px 40px ${stat.shadow}` }}>
+                      <div className="absolute inset-0 opacity-20" style={{ background: 'linear-gradient(45deg, transparent 40%, rgba(255,255,255,0.1) 100%)' }}/>
+                      <p className="text-white/70 text-xs uppercase tracking-widest mb-2">{stat.label}</p>
+                      <p className="text-5xl font-black text-white">{stat.value}</p>
+                    </div>
+                  ))}
                 </div>
 
                 {/* Grade Cards */}
-                <h2 className="text-xs font-bold text-white/30 uppercase tracking-widest mb-4">Class Overview</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-8">
+                <h2 className="text-xs font-bold text-white/20 uppercase tracking-widest mb-5">Class Overview — Today</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                   {GRADES.map(grade => {
-                    const gc = GRADE_COLORS[grade]
+                    const theme = GRADE_THEMES[grade]
                     const stats = gradeStats[grade] || { count: 0, totalSeconds: 0, avgSeconds: 0 }
-                    const gradeWarnings = students
-                      .filter(s => s.grade === grade && studentWarnings[s.id]).length
+                    const gradeWarnings = students.filter(s => s.grade === grade && studentWarnings[s.id]).length
+                    const pct = Math.min(Math.round((stats.avgSeconds / (5*3600)) * 100), 100)
+
                     return (
-                      <div
-                        key={grade}
-                        className={`relative overflow-hidden rounded-3xl border ${gc.border} bg-gradient-to-br ${gc.from}/10 ${gc.to}/5 p-6 cursor-pointer hover:scale-[1.02] transition-all duration-300 group`}
+                      <div key={grade}
                         onClick={() => { setSelectedGrade(grade); setView('students') }}
+                        className="relative overflow-hidden rounded-3xl cursor-pointer group transition-all duration-300 hover:scale-[1.02]"
+                        style={{ background: theme.gradient, boxShadow: theme.shadow }}
                       >
-                        <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${gc.from} ${gc.to} rounded-full filter blur-3xl opacity-10 group-hover:opacity-20 transition`}/>
-                        <div className="flex items-start justify-between mb-4">
-                          <div>
-                            <div className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${gc.text} bg-white/5 border ${gc.border} mb-2`}>
-                              {grade}
+                        {/* Glass overlay */}
+                        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-all duration-300" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.1), transparent)' }}/>
+
+                        {/* Decorative circle */}
+                        <div className="absolute -top-8 -right-8 w-40 h-40 rounded-full opacity-20" style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.5), transparent)' }}/>
+                        <div className="absolute -bottom-4 -left-4 w-24 h-24 rounded-full opacity-10" style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.5), transparent)' }}/>
+
+                        <div className="relative p-6">
+                          <div className="flex items-start justify-between mb-4">
+                            <div>
+                              <p className="text-white/60 text-xs uppercase tracking-widest mb-1">{theme.icon} {grade}</p>
+                              <p className="text-5xl font-black text-white">{stats.count}
+                                <span className="text-base font-normal text-white/50 ml-2">students</span>
+                              </p>
                             </div>
-                            <p className="text-4xl font-black text-white">{stats.count}
-                              <span className="text-base font-normal text-white/30 ml-1">students</span>
-                            </p>
+                            {gradeWarnings > 0 && (
+                              <div className="bg-black/20 backdrop-blur rounded-2xl px-3 py-2 text-center border border-white/10">
+                                <p className="text-xl">⚠️</p>
+                                <p className="text-white text-xs font-black">{gradeWarnings}</p>
+                              </div>
+                            )}
                           </div>
-                          {gradeWarnings > 0 && (
-                            <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-2xl px-3 py-2 text-center">
-                              <p className="text-2xl">⚠️</p>
-                              <p className="text-yellow-400 text-xs font-bold">{gradeWarnings}</p>
+
+                          <div className="grid grid-cols-2 gap-3 mb-4">
+                            <div className="bg-black/20 backdrop-blur rounded-2xl p-3 border border-white/10">
+                              <p className="text-white/50 text-xs mb-1">Total Today</p>
+                              <p className="text-xl font-black text-white">{formatTime(stats.totalSeconds)}</p>
                             </div>
-                          )}
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3 mb-4">
-                          <div className="bg-white/5 rounded-2xl p-3">
-                            <p className="text-white/30 text-xs mb-1">Total Today</p>
-                            <p className={`text-lg font-black ${gc.text}`}>{formatTime(stats.totalSeconds)}</p>
+                            <div className="bg-black/20 backdrop-blur rounded-2xl p-3 border border-white/10">
+                              <p className="text-white/50 text-xs mb-1">Avg / Student</p>
+                              <p className="text-xl font-black text-white">{formatTime(stats.avgSeconds)}</p>
+                            </div>
                           </div>
-                          <div className="bg-white/5 rounded-2xl p-3">
-                            <p className="text-white/30 text-xs mb-1">Avg Per Student</p>
-                            <p className={`text-lg font-black ${gc.text}`}>{formatTime(stats.avgSeconds)}</p>
-                          </div>
-                        </div>
 
-                        {/* Mini bar chart */}
-                        {stats.count > 0 && (
-                          <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                            <div
-                              className={`h-full bg-gradient-to-r ${gc.from} ${gc.to} rounded-full transition-all`}
-                              style={{ width: `${Math.min((stats.avgSeconds / (5*3600)) * 100, 100)}%` }}
-                            />
+                          <div className="bg-black/20 rounded-full h-2 overflow-hidden mb-2">
+                            <div className="h-full bg-white/60 rounded-full transition-all" style={{ width: `${pct}%` }}/>
                           </div>
-                        )}
-                        <p className="text-white/20 text-xs mt-2">
-                          {Math.min(Math.round((gradeStats[grade]?.avgSeconds || 0) / (5*3600) * 100), 100)}% of 5h limit
-                        </p>
-
-                        <div className={`mt-4 flex items-center gap-1 ${gc.text} text-sm font-semibold group-hover:gap-2 transition-all`}>
-                          View detailed info <span>→</span>
+                          <div className="flex items-center justify-between">
+                            <p className="text-white/40 text-xs">{pct}% of 5h daily limit</p>
+                            <p className="text-white/60 text-xs font-bold group-hover:text-white transition">View students →</p>
+                          </div>
                         </div>
                       </div>
                     )
                   })}
                 </div>
 
-                {/* Overall Grade Comparison Chart */}
-                <div className="bg-white/3 rounded-3xl border border-white/5 p-6 mb-6">
-                  <h3 className="font-bold text-white/60 text-sm mb-1">📊 Grade Comparison — Today's Usage</h3>
-                  <p className="text-white/20 text-xs mb-5">Average hours per student per grade</p>
+                {/* Grade Comparison Chart */}
+                <div className="rounded-3xl p-6 mb-6" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <h3 className="font-bold text-white/50 text-sm mb-1">📊 Grade Comparison</h3>
+                  <p className="text-white/20 text-xs mb-5">Average hours per student today</p>
                   <ResponsiveContainer width="100%" height={200}>
                     <BarChart data={GRADES.map(g => ({
-                      name: g.replace('Grade ', 'G'),
-                      hours: parseFloat(((gradeStats[g]?.avgSeconds || 0)/3600).toFixed(1))
+                      name: g.replace('Grade ', 'G'), hours: parseFloat(((gradeStats[g]?.avgSeconds||0)/3600).toFixed(1))
                     }))} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                      <XAxis dataKey="name" tick={{ fill: '#ffffff30', fontSize: 12 }} axisLine={false} tickLine={false}/>
-                      <YAxis tick={{ fill: '#ffffff30', fontSize: 12 }} axisLine={false} tickLine={false}/>
-                      <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #ffffff10', borderRadius: '16px' }} labelStyle={{ color: '#fff' }} formatter={(v: any) => [`${v} hrs`, 'Avg']}/>
-                      <Bar dataKey="hours" radius={[10,10,0,0]}>
-                        {GRADES.map((g, i) => <Cell key={i} fill={['#3b82f6','#8b5cf6','#10b981','#f59e0b'][i]}/>)}
+                      <XAxis dataKey="name" tick={{ fill: '#ffffff30', fontSize: 13, fontWeight: 'bold' }} axisLine={false} tickLine={false}/>
+                      <YAxis tick={{ fill: '#ffffff30', fontSize: 11 }} axisLine={false} tickLine={false}/>
+                      <Tooltip content={<CustomTooltip/>}/>
+                      <Bar dataKey="hours" radius={[12,12,0,0]}>
+                        {GRADES.map((g, i) => (
+                          <Cell key={i} fill={['#3b82f6','#8b5cf6','#10b981','#f59e0b'][i]}/>
+                        ))}
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
@@ -316,86 +320,84 @@ export default function AdminDashboard() {
               </>
             )}
 
-            {/* STUDENTS LIST VIEW */}
+            {/* STUDENTS LIST */}
             {view === 'students' && selectedGrade && (
               <>
                 <div className="flex items-center gap-3 mb-6">
-                  <div className={`px-4 py-1.5 rounded-full text-sm font-bold ${GRADE_COLORS[selectedGrade].text} bg-white/5 border ${GRADE_COLORS[selectedGrade].border}`}>
+                  <div className="px-4 py-2 rounded-2xl text-sm font-black text-white" style={{ background: GRADE_THEMES[selectedGrade].gradient }}>
                     {selectedGrade}
                   </div>
-                  <h2 className="text-xl font-black">{gradeStudents.length} Students</h2>
+                  <h2 className="text-2xl font-black">{gradeStudents.length} Students</h2>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {gradeStudents.map(s => {
                     const hasWarning = studentWarnings[s.id]
-                    const gc = GRADE_COLORS[selectedGrade]
+                    const theme = GRADE_THEMES[selectedGrade]
                     return (
-                      <button
-                        key={s.id}
+                      <button key={s.id}
                         onClick={() => { setSelectedStudent(s); setView('detail'); fetchUsage(s.id) }}
-                        className={`text-left bg-white/3 hover:bg-white/6 border ${hasWarning ? 'border-yellow-500/40' : 'border-white/5'} rounded-2xl p-5 transition-all hover:scale-[1.02] group`}
+                        className="text-left rounded-3xl p-5 transition-all hover:scale-[1.02] group"
+                        style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${hasWarning ? 'rgba(251,191,36,0.3)' : 'rgba(255,255,255,0.06)'}` }}
                       >
                         <div className="flex items-center gap-3 mb-3">
-                          <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${gc.from} ${gc.to} flex items-center justify-center text-lg font-black shadow-lg`}>
+                          <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-lg font-black shadow-xl" style={{ background: theme.gradient }}>
                             {s.full_name?.[0]?.toUpperCase()}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1">
-                              <p className="font-bold truncate">{s.full_name}</p>
+                              <p className="font-black truncate">{s.full_name}</p>
                               {hasWarning && <span>⚠️</span>}
                             </div>
                             <p className="text-white/30 text-xs truncate">{s.email}</p>
                           </div>
                         </div>
                         {hasWarning && (
-                          <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl px-3 py-1.5 mb-3">
-                            <p className="text-yellow-400 text-xs font-medium">⚠️ Over 5h screen time today</p>
+                          <div className="rounded-xl px-3 py-1.5 mb-3 text-xs font-bold text-yellow-300" style={{ background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.2)' }}>
+                            ⚠️ Over 5h screen time today
                           </div>
                         )}
-                        <div className={`flex items-center gap-1 ${gc.text} text-xs font-semibold group-hover:gap-2 transition-all`}>
-                          View details <span>→</span>
-                        </div>
+                        <p className="text-white/30 text-xs font-bold group-hover:text-white/60 transition">View details →</p>
                       </button>
                     )
                   })}
                   {gradeStudents.length === 0 && (
-                    <div className="col-span-3 text-center py-16 text-white/20">
-                      No students in {selectedGrade} yet
-                    </div>
+                    <div className="col-span-3 text-center py-16 text-white/20">No students in {selectedGrade} yet</div>
                   )}
                 </div>
               </>
             )}
 
-            {/* STUDENT DETAIL VIEW */}
+            {/* STUDENT DETAIL */}
             {view === 'detail' && selectedStudent && (
               <div className="space-y-5">
-                {/* Student Header */}
-                <div className={`bg-gradient-to-r from-white/5 to-transparent rounded-3xl p-6 border border-white/5`}>
+                <div className="rounded-3xl p-6" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${GRADE_COLORS[selectedStudent.grade]?.from || 'from-blue-500'} ${GRADE_COLORS[selectedStudent.grade]?.to || 'to-purple-600'} flex items-center justify-center text-2xl font-black shadow-xl`}>
+                      <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-black shadow-2xl"
+                        style={{ background: GRADE_THEMES[selectedStudent.grade]?.gradient || 'linear-gradient(135deg,#6366f1,#3b82f6)' }}>
                         {selectedStudent.full_name?.[0]?.toUpperCase()}
                       </div>
                       <div>
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-2">
                           <h2 className="text-2xl font-black">{selectedStudent.full_name}</h2>
-                          {studentWarnings[selectedStudent.id] && <span className="text-xl">⚠️</span>}
+                          {studentWarnings[selectedStudent.id] && <span>⚠️</span>}
                         </div>
                         <p className="text-white/40 text-sm">{selectedStudent.email}</p>
-                        <div className={`inline-block mt-1 px-3 py-0.5 rounded-full text-xs font-bold ${GRADE_COLORS[selectedStudent.grade]?.text || 'text-blue-400'} bg-white/5`}>
+                        <div className="inline-block mt-1 px-3 py-0.5 rounded-full text-xs font-black text-white"
+                          style={{ background: GRADE_THEMES[selectedStudent.grade]?.gradient }}>
                           {selectedStudent.grade}
                         </div>
                         {studentWarnings[selectedStudent.id] && (
-                          <p className="text-yellow-400 text-xs mt-1">⚠️ Over 5h screen time today</p>
+                          <p className="text-yellow-400 text-xs mt-1 font-bold">⚠️ Over 5h screen time today</p>
                         )}
                       </div>
                     </div>
                     <div className="flex gap-2">
                       {(['today','week','month'] as const).map(f => (
                         <button key={f} onClick={() => setFilter(f)}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-bold capitalize transition ${filter === f ? 'bg-gradient-to-r from-violet-600 to-blue-600 text-white' : 'bg-white/5 text-white/40 hover:text-white'}`}>
+                          className="px-3 py-1.5 rounded-xl text-xs font-black capitalize transition"
+                          style={filter === f ? { background: 'linear-gradient(135deg,#6366f1,#3b82f6)', color: 'white' } : { background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.4)' }}>
                           {f}
                         </button>
                       ))}
@@ -409,56 +411,51 @@ export default function AdminDashboard() {
                   </div>
                 ) : (
                   <>
-                    {/* Stats */}
-                    <div className="grid grid-cols-3 gap-3">
-                      <div className="bg-gradient-to-br from-blue-600/20 to-transparent rounded-2xl p-4 border border-blue-500/20">
-                        <p className="text-blue-400 text-xs uppercase tracking-wider">Screen Time</p>
-                        <p className="text-3xl font-black mt-1">{formatTime(totalTime)}</p>
-                      </div>
-                      <div className="bg-gradient-to-br from-violet-600/20 to-transparent rounded-2xl p-4 border border-violet-500/20">
-                        <p className="text-violet-400 text-xs uppercase tracking-wider">Apps Used</p>
-                        <p className="text-3xl font-black mt-1">{usage.length}</p>
-                      </div>
-                      <div className="bg-gradient-to-br from-orange-600/20 to-transparent rounded-2xl p-4 border border-orange-500/20">
-                        <p className="text-orange-400 text-xs uppercase tracking-wider">Top App</p>
-                        <p className="text-xl font-black mt-1 truncate">{usage[0]?.name || '--'}</p>
-                      </div>
+                    <div className="grid grid-cols-3 gap-4">
+                      {[
+                        { label: 'Screen Time', value: formatTime(totalTime), gradient: 'linear-gradient(135deg,#1D4ED8,#06B6D4)', shadow: 'rgba(29,78,216,0.3)' },
+                        { label: 'Apps Used', value: usage.length, gradient: 'linear-gradient(135deg,#7C3AED,#EC4899)', shadow: 'rgba(124,58,237,0.3)' },
+                        { label: 'Top App', value: usage[0]?.name || '--', gradient: 'linear-gradient(135deg,#D97706,#EF4444)', shadow: 'rgba(217,119,6,0.3)' },
+                      ].map((s, i) => (
+                        <div key={i} className="rounded-2xl p-4 relative overflow-hidden" style={{ background: s.gradient, boxShadow: `0 10px 30px ${s.shadow}` }}>
+                          <div className="absolute inset-0 opacity-20" style={{ background: 'linear-gradient(45deg,transparent,rgba(255,255,255,0.1))' }}/>
+                          <p className="text-white/60 text-xs uppercase tracking-wider mb-1">{s.label}</p>
+                          <p className="text-2xl font-black text-white truncate">{s.value}</p>
+                        </div>
+                      ))}
                     </div>
 
-                    {/* Daily Chart */}
-                    <div className="bg-white/3 rounded-3xl p-5 border border-white/5">
-                      <h3 className="text-sm font-bold text-white/50 mb-1">📅 Daily Usage</h3>
-                      <p className="text-xs text-white/20 mb-4">Red = over 5h limit</p>
+                    <div className="rounded-3xl p-5" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <h3 className="text-sm font-bold text-white/50 mb-1">📅 Daily Usage (hours)</h3>
+                      <p className="text-xs text-white/20 mb-4">🔴 Red bars = over 5h limit</p>
                       <ResponsiveContainer width="100%" height={180}>
                         <BarChart data={dailyData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                          <XAxis dataKey="name" tick={{ fill: '#ffffff30', fontSize: 11 }} axisLine={false} tickLine={false}/>
-                          <YAxis tick={{ fill: '#ffffff30', fontSize: 11 }} axisLine={false} tickLine={false}/>
+                          <XAxis dataKey="name" tick={{ fill: '#ffffff40', fontSize: 11 }} axisLine={false} tickLine={false}/>
+                          <YAxis tick={{ fill: '#ffffff40', fontSize: 11 }} axisLine={false} tickLine={false}/>
                           <Tooltip content={<CustomTooltip/>}/>
-                          <Bar dataKey="hours" radius={[6,6,0,0]}>
+                          <Bar dataKey="hours" radius={[8,8,0,0]}>
                             {dailyData.map((d, i) => <Cell key={i} fill={d.warning ? '#ef4444' : '#6366f1'}/>)}
                           </Bar>
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
 
-                    {/* Monthly Chart */}
-                    <div className="bg-white/3 rounded-3xl p-5 border border-white/5">
-                      <h3 className="text-sm font-bold text-white/50 mb-4">📆 Monthly Usage</h3>
+                    <div className="rounded-3xl p-5" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <h3 className="text-sm font-bold text-white/50 mb-4">📆 Monthly Usage (hours)</h3>
                       <ResponsiveContainer width="100%" height={160}>
                         <BarChart data={monthlyData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                          <XAxis dataKey="name" tick={{ fill: '#ffffff30', fontSize: 11 }} axisLine={false} tickLine={false}/>
-                          <YAxis tick={{ fill: '#ffffff30', fontSize: 11 }} axisLine={false} tickLine={false}/>
+                          <XAxis dataKey="name" tick={{ fill: '#ffffff40', fontSize: 11 }} axisLine={false} tickLine={false}/>
+                          <YAxis tick={{ fill: '#ffffff40', fontSize: 11 }} axisLine={false} tickLine={false}/>
                           <Tooltip content={<CustomTooltip/>}/>
-                          <Bar dataKey="hours" radius={[6,6,0,0]}>
-                            {monthlyData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]}/>)}
+                          <Bar dataKey="hours" radius={[8,8,0,0]}>
+                            {monthlyData.map((_, i) => <Cell key={i} fill={COLORS[i%COLORS.length]}/>)}
                           </Bar>
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
 
-                    {/* App Breakdown */}
                     {usage.length > 0 && (
-                      <div className="bg-white/3 rounded-3xl border border-white/5 overflow-hidden">
+                      <div className="rounded-3xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
                         <div className="px-5 py-4 border-b border-white/5">
                           <h3 className="text-sm font-bold text-white/50">📱 App Breakdown</h3>
                         </div>
@@ -468,21 +465,23 @@ export default function AdminDashboard() {
                             const pct = Math.round((app.seconds/totalTime)*100)
                             return (
                               <div key={app.name} className="px-5 py-3">
-                                <div className="flex items-center justify-between mb-1.5">
+                                <div className="flex items-center justify-between mb-2">
                                   <div className="flex items-center gap-2">
-                                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[i%COLORS.length] }}/>
-                                    <span className="text-sm font-semibold">{app.name}</span>
+                                    <div className="w-3 h-3 rounded-full" style={{ background: COLORS[i%COLORS.length], boxShadow: `0 0 8px ${COLORS[i%COLORS.length]}` }}/>
+                                    <span className="text-sm font-bold">{app.name}</span>
                                     {appWarning && <span className="text-sm">⚠️</span>}
                                   </div>
                                   <div className="flex items-center gap-2">
                                     {appWarning && (
-                                      <span className="text-xs bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 px-2 py-0.5 rounded-full">Over 3h</span>
+                                      <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(251,191,36,0.1)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.2)' }}>
+                                        Over 3h
+                                      </span>
                                     )}
-                                    <span className="text-sm font-mono" style={{ color: COLORS[i%COLORS.length] }}>{formatTime(app.seconds)}</span>
+                                    <span className="text-sm font-mono font-black" style={{ color: COLORS[i%COLORS.length] }}>{formatTime(app.seconds)}</span>
                                   </div>
                                 </div>
-                                <div className="w-full bg-white/5 rounded-full h-1.5">
-                                  <div className="h-1.5 rounded-full" style={{ width: `${pct}%`, backgroundColor: appWarning ? '#f59e0b' : COLORS[i%COLORS.length] }}/>
+                                <div className="w-full rounded-full h-1.5" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                                  <div className="h-1.5 rounded-full" style={{ width: `${pct}%`, background: appWarning ? 'linear-gradient(90deg,#f59e0b,#ef4444)' : COLORS[i%COLORS.length], boxShadow: `0 0 8px ${COLORS[i%COLORS.length]}40` }}/>
                                 </div>
                               </div>
                             )
@@ -499,23 +498,24 @@ export default function AdminDashboard() {
 
         {/* TEACHERS TAB */}
         {activeTab === 'teachers' && (
-          <div className="bg-white/3 rounded-3xl border border-white/5 overflow-hidden">
+          <div className="rounded-3xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
             <div className="px-5 py-4 border-b border-white/5">
-              <h3 className="font-bold">All Teachers</h3>
+              <h3 className="font-black">All Teachers</h3>
             </div>
             <div className="divide-y divide-white/5">
               {teachers.map(t => (
                 <div key={t.id} className="flex items-center justify-between px-5 py-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center text-sm font-black">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black shadow-lg"
+                      style={{ background: 'linear-gradient(135deg,#7C3AED,#EC4899)' }}>
                       {t.full_name?.[0]?.toUpperCase()}
                     </div>
                     <div>
-                      <p className="font-semibold text-sm">{t.full_name}</p>
+                      <p className="font-bold text-sm">{t.full_name}</p>
                       <p className="text-white/30 text-xs">{t.email}</p>
                     </div>
                   </div>
-                  <span className="text-xs bg-purple-500/10 text-purple-400 border border-purple-500/20 px-3 py-1 rounded-full">Teacher</span>
+                  <span className="text-xs font-bold px-3 py-1 rounded-full" style={{ background: 'rgba(124,58,237,0.15)', color: '#c084fc', border: '1px solid rgba(124,58,237,0.3)' }}>Teacher</span>
                 </div>
               ))}
               {teachers.length === 0 && <p className="text-white/20 text-sm px-5 py-8 text-center">No teachers yet</p>}
@@ -525,13 +525,14 @@ export default function AdminDashboard() {
 
         {/* LINKS TAB */}
         {activeTab === 'links' && (
-          <div className="bg-white/3 rounded-3xl border border-white/5 p-6 max-w-lg">
-            <h3 className="font-bold mb-1">Link Teacher to Student</h3>
-            <p className="text-white/30 text-sm mb-5">Teachers can only see students they are linked to</p>
+          <div className="rounded-3xl p-6 max-w-lg" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <h3 className="font-black mb-1">Link Teacher to Student</h3>
+            <p className="text-white/30 text-sm mb-5">Teachers only see students they are linked to</p>
             <div className="space-y-3">
               <div>
                 <label className="text-white/30 text-xs uppercase tracking-wider">Select Teacher</label>
-                <select className="w-full mt-1.5 bg-white/5 border border-white/10 text-white rounded-xl px-4 py-3 outline-none focus:border-violet-500 transition"
+                <select className="w-full mt-1.5 text-white rounded-xl px-4 py-3 outline-none transition"
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
                   value={selectedTeacher} onChange={e => setSelectedTeacher(e.target.value)}>
                   <option value="">Choose a teacher...</option>
                   {teachers.map(t => <option key={t.id} value={t.id}>{t.full_name} — {t.email}</option>)}
@@ -539,19 +540,21 @@ export default function AdminDashboard() {
               </div>
               <div>
                 <label className="text-white/30 text-xs uppercase tracking-wider">Select Student</label>
-                <select className="w-full mt-1.5 bg-white/5 border border-white/10 text-white rounded-xl px-4 py-3 outline-none focus:border-violet-500 transition"
+                <select className="w-full mt-1.5 text-white rounded-xl px-4 py-3 outline-none transition"
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
                   value={selectedStudentLink} onChange={e => setSelectedStudentLink(e.target.value)}>
                   <option value="">Choose a student...</option>
                   {students.map(s => <option key={s.id} value={s.id}>{s.full_name} ({s.grade}) — {s.email}</option>)}
                 </select>
               </div>
               {message && (
-                <div className={`rounded-xl p-3 text-sm ${message.includes('success') ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
+                <div className="rounded-xl p-3 text-sm font-bold" style={{ background: message.includes('success') ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', color: message.includes('success') ? '#34d399' : '#f87171', border: `1px solid ${message.includes('success') ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)'}` }}>
                   {message}
                 </div>
               )}
               <button onClick={linkTeacherStudent}
-                className="w-full bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 text-white font-bold py-3 rounded-xl transition shadow-lg shadow-violet-500/20">
+                className="w-full text-white font-black py-3 rounded-xl transition hover:opacity-90 shadow-xl"
+                style={{ background: 'linear-gradient(135deg,#6366f1,#3b82f6)', boxShadow: '0 10px 30px rgba(99,102,241,0.3)' }}>
                 Link Teacher to Student
               </button>
             </div>
