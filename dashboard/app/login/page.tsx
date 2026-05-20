@@ -1,9 +1,10 @@
 'use client'
-import { useState } from 'react'
 
+import { useState } from 'react'
 export const dynamic = 'force-dynamic'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import { Smartphone, Lock, Mail, Loader2, AlertCircle } from 'lucide-react'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -16,88 +17,108 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) { setError(error.message); setLoading(false); return }
+    try {
+      const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })
+      if (authError) throw authError
 
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', data.user.id)
-      .single()
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', data.user.id)
+        .single()
 
-    if (profileError || !profile) {
-      setError('Profile not found. Contact admin.')
-      setLoading(false)
-      return
-    }
+      if (profileError || !profile) {
+        throw new Error('Profile not found. Please contact your administrator.')
+      }
 
-    if (profile.role === 'admin') router.push('/admin')
-    else if (profile.role === 'teacher') router.push('/teacher')
-    else {
-      setError('Access denied. Only teachers and admins can log in here.')
+      if (profile.role === 'admin') router.push('/admin')
+      else if (profile.role === 'teacher') router.push('/teacher')
+      else {
+        throw new Error('Access denied. Only teachers and admins can access this portal.')
+      }
+    } catch (err: any) {
+      setError(err.message || 'An unexpected error occurred.')
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-950 relative overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-950 via-gray-950 to-purple-950 opacity-80"/>
-      <div className="absolute top-20 left-20 w-72 h-72 bg-blue-600 rounded-full filter blur-3xl opacity-10 animate-pulse"/>
-      <div className="absolute bottom-20 right-20 w-96 h-96 bg-purple-600 rounded-full filter blur-3xl opacity-10 animate-pulse"/>
+    <div className="min-h-screen bg-[#020617] text-slate-200 flex items-center justify-center p-6 relative overflow-hidden selection:bg-indigo-500/30">
+      {/* Background Decorative Elements */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-indigo-600/10 blur-[120px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-fuchsia-600/10 blur-[120px]" />
+      </div>
 
-      <div className="relative z-10 w-full max-w-md px-6">
+      <div className="w-full max-w-[440px] relative z-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
         <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-600 mb-4 shadow-lg shadow-blue-500/30">
-            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-[28px] bg-gradient-to-br from-indigo-500 to-blue-600 shadow-2xl shadow-indigo-500/20 mb-6">
+            <Smartphone className="w-10 h-10 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">AppMeter</h1>
-          <p className="text-gray-400 mt-2 text-sm">Student Usage Dashboard</p>
+          <h1 className="text-4xl font-black text-white tracking-tight mb-2">AppMeter</h1>
+          <p className="text-slate-400 font-medium">Education Monitoring Portal</p>
         </div>
 
-        <div className="bg-gray-900/80 backdrop-blur-xl border border-gray-800 rounded-3xl p-8 shadow-2xl">
-          <h2 className="text-xl font-semibold text-white mb-6">Sign in to continue</h2>
+        <div className="bg-slate-900/40 backdrop-blur-2xl border border-white/5 rounded-[40px] p-10 shadow-2xl">
+          <h2 className="text-xl font-bold text-white mb-8">Sign in to continue</h2>
 
           {error && (
-            <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 mb-4">
-              <p className="text-red-400 text-sm">{error}</p>
+            <div className="bg-rose-500/10 border border-rose-500/20 rounded-2xl p-4 mb-6 flex items-start gap-3 animate-in zoom-in duration-300">
+              <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+              <p className="text-sm text-rose-400 font-medium leading-relaxed">{error}</p>
             </div>
           )}
 
-          <div className="space-y-4">
-            <div>
-              <label className="text-gray-400 text-xs font-medium uppercase tracking-wider">Email</label>
-              <input
-                className="w-full mt-1.5 bg-gray-800/50 border border-gray-700 text-white rounded-xl px-4 py-3 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
-                placeholder="your@email.com"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                type="email"
-              />
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 ml-1">Email Address</label>
+              <div className="relative group">
+                <Mail className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors" />
+                <input
+                  className="w-full bg-slate-950/50 border border-white/10 text-white rounded-2xl pl-12 pr-4 py-4 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/40 transition-all placeholder:text-slate-600"
+                  placeholder="name@institution.edu"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  type="email"
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="text-gray-400 text-xs font-medium uppercase tracking-wider">Password</label>
-              <input
-                type="password"
-                className="w-full mt-1.5 bg-gray-800/50 border border-gray-700 text-white rounded-xl px-4 py-3 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
-                placeholder="••••••••"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleLogin()}
-              />
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 ml-1">Secure Password</label>
+              <div className="relative group">
+                <Lock className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors" />
+                <input
+                  type="password"
+                  className="w-full bg-slate-950/50 border border-white/10 text-white rounded-2xl pl-12 pr-4 py-4 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/40 transition-all placeholder:text-slate-600"
+                  placeholder="••••••••••••"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                />
+              </div>
             </div>
 
             <button
               onClick={handleLogin}
               disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition-all duration-200 shadow-lg shadow-blue-500/20 mt-2"
+              className="w-full bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 disabled:opacity-50 text-white font-black py-5 rounded-2xl shadow-xl shadow-indigo-500/20 transition-all active:scale-[0.98] mt-4 flex items-center justify-center gap-3"
             >
-              {loading ? 'Signing in...' : 'Sign In'}
+              {loading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Authenticating...</span>
+                </>
+              ) : (
+                <span>Access Dashboard</span>
+              )}
             </button>
           </div>
         </div>
+        
+        <p className="text-center mt-8 text-slate-500 text-sm">
+          Protected by industry standard encryption.
+        </p>
       </div>
     </div>
   )
