@@ -1,10 +1,13 @@
 package com.studenttracker
 
+import android.app.admin.DevicePolicyManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import com.studenttracker.receiver.AdminReceiver
 import kotlinx.coroutines.*
 import org.json.JSONArray
 import java.net.HttpURLConnection
@@ -24,6 +27,7 @@ class DashboardActivity : AppCompatActivity() {
         val totalTimeText = findViewById<TextView>(R.id.totalTimeText)
         val logoutButton = findViewById<Button>(R.id.logoutButton)
 
+        requestDeviceAdmin()
         loadUsageData(listView, totalTimeText)
 
         logoutButton.setOnClickListener {
@@ -75,6 +79,17 @@ class DashboardActivity : AppCompatActivity() {
                     Toast.makeText(this@DashboardActivity, "Error: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
+        }
+    }
+
+    private fun requestDeviceAdmin() {
+        val devicePolicyManager = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+        val adminComponent = ComponentName(this, AdminReceiver::class.java)
+        if (!devicePolicyManager.isAdminActive(adminComponent)) {
+            val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN)
+            intent.putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, adminComponent)
+            intent.putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION, "Device Admin is required to prevent unauthorized uninstallation.")
+            startActivity(intent)
         }
     }
 
